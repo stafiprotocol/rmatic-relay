@@ -78,7 +78,7 @@ func (t *Task) checkAndCallNewEra(currentEra, latestEra *big.Int, latestCallOpts
 	for {
 		// wait 2h
 		if retry > 2*60*5 {
-			return fmt.Errorf("wait newEra executed failed")
+			return fmt.Errorf("wait newEra %d executed failed", willUseEra.Uint64())
 		}
 		latestEra, err := t.contractStakeManager.LatestEra(latestCallOpts)
 		if err != nil {
@@ -89,12 +89,12 @@ func (t *Task) checkAndCallNewEra(currentEra, latestEra *big.Int, latestCallOpts
 		}
 
 		if latestEra.Cmp(willUseEra) < 0 {
-			logrus.Warnf("waiting newEra executed...")
+			logrus.Warnf("waiting newEra %d executed...", willUseEra.Uint64())
 			time.Sleep(12 * time.Second)
 			retry++
 			continue
 		}
-		logrus.Info("newEra already executed success")
+		logrus.Infof("newEra %d already executed success", willUseEra.Uint64())
 		break
 	}
 

@@ -28,7 +28,7 @@ var (
 	defaultHomePath    = filepath.Join(os.Getenv("HOME"), ".stafi/rmatic")
 	defaultEthEndpoint = ""
 	defaultGasLimit    = "2000000"
-	defaultMaxGasPrice = "20000000000"
+	defaultMaxGasPrice = "150000000000"
 	defaultStakeManger = "" //todo update address
 	defaultLogLevel    = logrus.InfoLevel.String()
 )
