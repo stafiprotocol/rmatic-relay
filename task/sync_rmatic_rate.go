@@ -99,9 +99,15 @@ func waitPolygonTxOk(txHash common.Hash, polygonConn *shared.Client) error {
 			break
 		} else {
 			if err != nil {
-				logrus.Warn("tx status", "hash", txHash, "err", err.Error())
+				logrus.WithFields(logrus.Fields{
+					"tx hash": txHash,
+					"err":     err.Error(),
+				}).Warn("tx status")
 			} else {
-				logrus.Warn("tx status", "hash", txHash, "status", "pending")
+				logrus.WithFields(logrus.Fields{
+					"tx hash": txHash,
+					"status":  "pending",
+				}).Warn("tx status")
 			}
 			time.Sleep(6 * time.Second)
 			retry++
@@ -109,7 +115,9 @@ func waitPolygonTxOk(txHash common.Hash, polygonConn *shared.Client) error {
 		}
 
 	}
-	logrus.Info("tx send ok", "tx", txHash.String())
+	logrus.WithFields(logrus.Fields{
+		"tx hash": txHash,
+	}).Info("tx send ok")
 	return nil
 }
 
