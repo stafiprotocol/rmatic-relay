@@ -32,6 +32,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(
 		genAccountCmd(),
 		startCmd(),
+		syncRateCmd(),
 		versionCmd(),
 	)
 	return rootCmd

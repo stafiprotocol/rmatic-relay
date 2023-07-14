@@ -26,6 +26,11 @@ var (
 	EraStateOperateAckExecuted = uint8(3)
 )
 
+var (
+	TaskTypeNewEra   = uint8(1)
+	TaskTypeSyncRate = uint8(2)
+)
+
 func GetBcDelegationAddressFromBsc(addrBts []byte) bncCmnTypes.AccAddress {
 	return GetStakeCAoB(addrBts, DelegateCAoBSalt)
 }

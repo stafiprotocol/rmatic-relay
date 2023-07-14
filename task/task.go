@@ -38,9 +38,11 @@ type Task struct {
 	polygonClient                  *shared.Client
 	ethContractStakeManager        *stake_manager.StakeManager
 	polygonContractStakePortalRate *stake_portal_rate.StakePortalRate
+
+	taskType uint8
 }
 
-func NewTask(cfg *config.Config, keyPair *secp256k1.Keypair) (*Task, error) {
+func NewTask(cfg *config.Config, keyPair *secp256k1.Keypair, taskType uint8) (*Task, error) {
 	gasLimitDeci, err := decimal.NewFromString(cfg.GasLimit)
 	if err != nil {
 		return nil, err
@@ -57,16 +59,24 @@ func NewTask(cfg *config.Config, keyPair *secp256k1.Keypair) (*Task, error) {
 		return nil, fmt.Errorf("max gas price is zero")
 	}
 
+	if taskType != utils.TaskTypeNewEra && taskType != utils.TaskTypeSyncRate {
+		return nil, fmt.Errorf("task type unmatch")
+	}
+
 	s := &Task{
-		taskTicker:                    15,
-		stop:                          make(chan struct{}),
-		ethRpcEndpoint:                cfg.EthRpcEndpoint,
-		polygonRpcEndpoint:            cfg.PolygonRpcEndpoint,
-		keyPair:                       keyPair,
-		gasLimit:                      gasLimitDeci.BigInt(),
-		maxGasPrice:                   maxGasPriceDeci.BigInt(),
-		ethStakeMangerAddress:         common.HexToAddress(cfg.StakeMangerAddress),
-		polygonStakePortalRateAddress: common.HexToAddress(cfg.PolygonStakePortalRateAddress),
+		taskTicker:            15,
+		stop:                  make(chan struct{}),
+		ethRpcEndpoint:        cfg.EthRpcEndpoint,
+		keyPair:               keyPair,
+		gasLimit:              gasLimitDeci.BigInt(),
+		maxGasPrice:           maxGasPriceDeci.BigInt(),
+		ethStakeMangerAddress: common.HexToAddress(cfg.StakeMangerAddress),
+		taskType:              taskType,
+	}
+
+	if taskType == utils.TaskTypeSyncRate {
+		s.polygonRpcEndpoint = cfg.PolygonRpcEndpoint
+		s.polygonStakePortalRateAddress = common.HexToAddress(cfg.PolygonStakePortalRateAddress)
 	}
 
 	return s, nil
@@ -78,12 +88,6 @@ func (task *Task) Start() error {
 		return err
 	}
 	task.ethClient = ethClient
-
-	polygonClient, err := shared.NewClient(task.polygonRpcEndpoint, task.keyPair, task.gasLimit, task.maxGasPrice)
-	if err != nil {
-		return err
-	}
-	task.polygonClient = polygonClient
 
 	chainId, err := task.ethClient.Client().ChainID(context.Background())
 	if err != nil {
@@ -113,14 +117,26 @@ func (task *Task) Start() error {
 	}
 	task.ethContractStakeManager = stakeManger
 
-	stakePortalRate, err := stake_portal_rate.NewStakePortalRate(task.polygonStakePortalRateAddress, task.polygonClient.Client())
-	if err != nil {
-		return err
-	}
-	task.polygonContractStakePortalRate = stakePortalRate
+	switch task.taskType {
+	case utils.TaskTypeNewEra:
+		utils.SafeGoWithRestart(task.newEraHandler)
+	case utils.TaskTypeSyncRate:
+		polygonClient, err := shared.NewClient(task.polygonRpcEndpoint, task.keyPair, task.gasLimit, task.maxGasPrice)
+		if err != nil {
+			return err
+		}
+		task.polygonClient = polygonClient
 
-	utils.SafeGoWithRestart(task.newEraHandler)
-	utils.SafeGoWithRestart(task.syncRateHandler)
+		stakePortalRate, err := stake_portal_rate.NewStakePortalRate(task.polygonStakePortalRateAddress, task.polygonClient.Client())
+		if err != nil {
+			return err
+		}
+		task.polygonContractStakePortalRate = stakePortalRate
+		utils.SafeGoWithRestart(task.syncRateHandler)
+	default:
+		return fmt.Errorf("task type unmatch")
+	}
+
 	return nil
 }
 
