@@ -12,27 +12,32 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 	"github.com/stafiprotocol/chainbridge/utils/crypto/secp256k1"
-	stake_manager "rmatic-relay/bindings/StakeManager"
+	"rmatic-relay/bindings/StakeManager"
+	"rmatic-relay/bindings/StakePortalRate"
 	"rmatic-relay/pkg/config"
 	"rmatic-relay/pkg/utils"
 	"rmatic-relay/shared"
 )
 
 type Task struct {
-	taskTicker     int64
-	stop           chan struct{}
-	ethRpcEndpoint string
-	keyPair        *secp256k1.Keypair
-	gasLimit       *big.Int
-	maxGasPrice    *big.Int
+	taskTicker         int64
+	stop               chan struct{}
+	ethRpcEndpoint     string
+	polygonRpcEndpoint string
+	keyPair            *secp256k1.Keypair
+	gasLimit           *big.Int
+	maxGasPrice        *big.Int
 
-	stakeMangerAddress common.Address
+	ethStakeMangerAddress         common.Address
+	polygonStakePortalRateAddress common.Address
 
 	// need init on start()
 	isDev bool
 
-	ethClient            *shared.Client
-	contractStakeManager *stake_manager.StakeManager
+	ethClient                      *shared.Client
+	polygonClient                  *shared.Client
+	ethContractStakeManager        *stake_manager.StakeManager
+	polygonContractStakePortalRate *stake_portal_rate.StakePortalRate
 }
 
 func NewTask(cfg *config.Config, keyPair *secp256k1.Keypair) (*Task, error) {
@@ -53,27 +58,33 @@ func NewTask(cfg *config.Config, keyPair *secp256k1.Keypair) (*Task, error) {
 	}
 
 	s := &Task{
-		taskTicker:         15,
-		stop:               make(chan struct{}),
-		ethRpcEndpoint:     cfg.EthRpcEndpoint,
-		keyPair:            keyPair,
-		gasLimit:           gasLimitDeci.BigInt(),
-		maxGasPrice:        maxGasPriceDeci.BigInt(),
-		stakeMangerAddress: common.HexToAddress(cfg.StakeMangerAddress),
+		taskTicker:                    15,
+		stop:                          make(chan struct{}),
+		ethRpcEndpoint:                cfg.EthRpcEndpoint,
+		polygonRpcEndpoint:            cfg.PolygonRpcEndpoint,
+		keyPair:                       keyPair,
+		gasLimit:                      gasLimitDeci.BigInt(),
+		maxGasPrice:                   maxGasPriceDeci.BigInt(),
+		ethStakeMangerAddress:         common.HexToAddress(cfg.StakeMangerAddress),
+		polygonStakePortalRateAddress: common.HexToAddress(cfg.PolygonStakePortalRateAddress),
 	}
 
 	return s, nil
 }
 
 func (task *Task) Start() error {
-	client, err := shared.NewClient(task.ethRpcEndpoint, task.keyPair, task.gasLimit, task.maxGasPrice)
+	ethClient, err := shared.NewClient(task.ethRpcEndpoint, task.keyPair, task.gasLimit, task.maxGasPrice)
 	if err != nil {
 		return err
 	}
+	task.ethClient = ethClient
 
-	task.ethClient = client
+	polygonClient, err := shared.NewClient(task.polygonRpcEndpoint, task.keyPair, task.gasLimit, task.maxGasPrice)
+	if err != nil {
+		return err
+	}
+	task.polygonClient = polygonClient
 
-	// set domain by chainId
 	chainId, err := task.ethClient.Client().ChainID(context.Background())
 	if err != nil {
 		return err
@@ -87,7 +98,7 @@ func (task *Task) Start() error {
 		return fmt.Errorf("unsupport chainId: %d", chainId.Int64())
 	}
 
-	stakeManger, err := stake_manager.NewStakeManager(task.stakeMangerAddress, task.ethClient.Client())
+	stakeManger, err := stake_manager.NewStakeManager(task.ethStakeMangerAddress, task.ethClient.Client())
 	if err != nil {
 		return err
 	}
@@ -100,9 +111,16 @@ func (task *Task) Start() error {
 	if len(bondedPools) == 0 {
 		return fmt.Errorf("no bonded pools")
 	}
-	task.contractStakeManager = stakeManger
+	task.ethContractStakeManager = stakeManger
 
-	utils.SafeGoWithRestart(task.Handler)
+	stakePortalRate, err := stake_portal_rate.NewStakePortalRate(task.polygonStakePortalRateAddress, task.polygonClient.Client())
+	if err != nil {
+		return err
+	}
+	task.polygonContractStakePortalRate = stakePortalRate
+
+	utils.SafeGoWithRestart(task.newEraHandler)
+	utils.SafeGoWithRestart(task.syncRateHandler)
 	return nil
 }
 
@@ -110,8 +128,8 @@ func (task *Task) Stop() {
 	close(task.stop)
 }
 
-func (task *Task) Handler() {
-	logrus.Info("start Handler")
+func (task *Task) newEraHandler() {
+	logrus.Info("start new era Handler")
 	ticker := time.NewTicker(time.Duration(task.taskTicker) * time.Second)
 	defer ticker.Stop()
 
@@ -122,25 +140,47 @@ func (task *Task) Handler() {
 			logrus.Info("task has stopped")
 			return
 		case <-ticker.C:
-			logrus.Debug("handler start -----------")
-			err := task.newEraHandler()
+			logrus.Debug("newEraHandler start -----------")
+			err := task.handleNewEra()
 			if err != nil {
-				logrus.Warnf("handler failed, err: %s", err.Error())
+				logrus.Warnf("newEraHandler failed, err: %s", err.Error())
 				continue
 			}
-			logrus.Debug("handler end -----------")
+			logrus.Debug("newEraHandler end -----------")
+		}
+	}
+}
+func (task *Task) syncRateHandler() {
+	logrus.Info("start sync rate Handler")
+	ticker := time.NewTicker(time.Duration(task.taskTicker) * time.Second)
+	defer ticker.Stop()
+
+	for {
+
+		select {
+		case <-task.stop:
+			logrus.Info("task has stopped")
+			return
+		case <-ticker.C:
+			logrus.Debug("syncRMaticRateHandler start -----------")
+			err := task.syncRMaticRateHandler()
+			if err != nil {
+				logrus.Warnf("syncRMaticRateHandler failed, err: %s", err.Error())
+				continue
+			}
+			logrus.Debug("syncRMaticRateHandler end -----------")
 		}
 	}
 }
 
-func (task *Task) waitTxOnChain(txHash common.Hash) (err error) {
+func (task *Task) waitTxOnChain(txHash common.Hash, client *shared.Client) (err error) {
 	retry := 0
 	txSuccess := false
 	for {
 		if retry > utils.RetryLimit {
 			return fmt.Errorf("waitTxOnChain %s reach retry limit", txHash.String())
 		}
-		_, pending, err := task.ethClient.TransactionByHash(txHash)
+		_, pending, err := client.TransactionByHash(txHash)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"hash": txHash.String(),

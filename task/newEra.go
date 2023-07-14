@@ -11,18 +11,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (t *Task) newEraHandler() error {
+func (t *Task) handleNewEra() error {
 	latestCallOpts := bind.CallOpts{
 		Pending: false,
 		From:    [20]byte{},
 		Context: context.Background(),
 	}
 
-	currentEra, err := t.contractStakeManager.CurrentEra(&latestCallOpts)
+	currentEra, err := t.ethContractStakeManager.CurrentEra(&latestCallOpts)
 	if err != nil {
 		return err
 	}
-	latestEra, err := t.contractStakeManager.LatestEra(&latestCallOpts)
+	latestEra, err := t.ethContractStakeManager.LatestEra(&latestCallOpts)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (t *Task) checkAndCallNewEra(currentEra, latestEra *big.Int, latestCallOpts
 	willUseEra := new(big.Int).Add(latestEra, big.NewInt(1))
 
 	// check era
-	latestEra, err := t.contractStakeManager.LatestEra(latestCallOpts)
+	latestEra, err := t.ethContractStakeManager.LatestEra(latestCallOpts)
 	if err != nil {
 		return err
 	}
@@ -62,13 +62,13 @@ func (t *Task) checkAndCallNewEra(currentEra, latestEra *big.Int, latestCallOpts
 	if err != nil {
 		return err
 	}
-	tx, err := t.contractStakeManager.NewEra(t.ethClient.Opts())
+	tx, err := t.ethContractStakeManager.NewEra(t.ethClient.Opts())
 	t.ethClient.UnlockOpts()
 	if err != nil {
 		return err
 	}
 
-	err = t.waitTxOnChain(tx.Hash())
+	err = t.waitTxOnChain(tx.Hash(), t.ethClient)
 	if err != nil {
 		return errors.Wrap(err, "waitTxOnChain failed")
 	}
@@ -80,7 +80,7 @@ func (t *Task) checkAndCallNewEra(currentEra, latestEra *big.Int, latestCallOpts
 		if retry > 2*60*5 {
 			return fmt.Errorf("wait newEra %d executed failed", willUseEra.Uint64())
 		}
-		latestEra, err := t.contractStakeManager.LatestEra(latestCallOpts)
+		latestEra, err := t.ethContractStakeManager.LatestEra(latestCallOpts)
 		if err != nil {
 			logrus.Warnf("get latestEra failed: %s", err.Error())
 			time.Sleep(12 * time.Second)

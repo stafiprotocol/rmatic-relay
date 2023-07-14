@@ -11,12 +11,14 @@ import (
 )
 
 type Config struct {
-	EthRpcEndpoint string
-	Account        string
-	GasLimit       string
-	MaxGasPrice    string
+	EthRpcEndpoint     string
+	PolygonRpcEndpoint string
+	Account            string
+	GasLimit           string
+	MaxGasPrice        string
 
-	StakeMangerAddress string
+	StakeMangerAddress            string
+	PolygonStakePortalRateAddress string
 
 	//read from config
 	LogFilePath  string

@@ -17,20 +17,24 @@ import (
 )
 
 var (
-	flagHome         = "home"
-	flagEthEndpoint  = "eth_endpoint"
-	flagAccount      = "account"
-	flagGasLimit     = "gas_limit"
-	flagMaxGasPrice  = "max_gas_price"
-	flagStakeManager = "stake_manager"
-	flagLogLevel     = "log_level"
+	flagHome            = "home"
+	flagEthEndpoint     = "eth_endpoint"
+	flagPolygonEndpoint = "polygon_endpoint"
+	flagAccount         = "account"
+	flagGasLimit        = "gas_limit"
+	flagMaxGasPrice     = "max_gas_price"
+	flagStakeManager    = "stake_manager"
+	flagStakePortalRate = "stake_portal_rate"
+	flagLogLevel        = "log_level"
 
-	defaultHomePath    = filepath.Join(os.Getenv("HOME"), ".stafi/rmatic")
-	defaultEthEndpoint = ""
-	defaultGasLimit    = "2000000"
-	defaultMaxGasPrice = "150000000000"
-	defaultStakeManger = "" //todo update address
-	defaultLogLevel    = logrus.InfoLevel.String()
+	defaultHomePath        = filepath.Join(os.Getenv("HOME"), ".stafi/rmatic")
+	defaultEthEndpoint     = ""
+	defaultPolygonEndpoint = ""
+	defaultGasLimit        = "2000000"
+	defaultMaxGasPrice     = "150000000000"
+	defaultStakeManger     = "" //todo update address
+	defaultStakePortalRate = "" //todo update address
+	defaultLogLevel        = logrus.InfoLevel.String()
 )
 
 func startCmd() *cobra.Command {
@@ -46,6 +50,10 @@ func startCmd() *cobra.Command {
 			fmt.Printf("config home: %s\n", configHome)
 
 			configEthEndpoint, err := cmd.Flags().GetString(flagEthEndpoint)
+			if err != nil {
+				return err
+			}
+			configPolygonEndpoint, err := cmd.Flags().GetString(flagPolygonEndpoint)
 			if err != nil {
 				return err
 			}
@@ -73,6 +81,14 @@ func startCmd() *cobra.Command {
 			if !common.IsHexAddress(configStakeManager) {
 				return fmt.Errorf("stake manager not hex address: %s", configAccount)
 			}
+
+			configStakePortalRate, err := cmd.Flags().GetString(flagStakePortalRate)
+			if err != nil {
+				return err
+			}
+			if !common.IsHexAddress(configStakePortalRate) {
+				return fmt.Errorf("configStakePortalRate not hex address: %s", configAccount)
+			}
 			// check log level
 			logLevelStr, err := cmd.Flags().GetString(flagLogLevel)
 			if err != nil {
@@ -90,10 +106,12 @@ func startCmd() *cobra.Command {
 
 			cfg := config.Config{}
 			cfg.EthRpcEndpoint = configEthEndpoint
+			cfg.PolygonRpcEndpoint = configPolygonEndpoint
 			cfg.Account = configAccount
 			cfg.GasLimit = configGasLimit
 			cfg.MaxGasPrice = configMaxGasPrice
 			cfg.StakeMangerAddress = configStakeManager
+			cfg.PolygonStakePortalRateAddress = configStakePortalRate
 
 			cfg.LogFilePath = logFilePath
 			cfg.KeystorePath = keystorePath
@@ -137,10 +155,12 @@ func startCmd() *cobra.Command {
 
 	cmd.Flags().String(flagHome, defaultHomePath, "Home path")
 	cmd.Flags().String(flagEthEndpoint, defaultEthEndpoint, "Rpc endpoint of eth execution layer ")
+	cmd.Flags().String(flagPolygonEndpoint, defaultPolygonEndpoint, "Rpc endpoint of polygon")
 	cmd.Flags().String(flagAccount, "", "Account hex string address")
 	cmd.Flags().String(flagGasLimit, defaultGasLimit, "Gas limit")
 	cmd.Flags().String(flagMaxGasPrice, defaultMaxGasPrice, "Max gas price")
 	cmd.Flags().String(flagStakeManager, defaultStakeManger, "Stake manager contract address")
+	cmd.Flags().String(flagStakePortalRate, defaultStakePortalRate, "Polygon stake portal rate contract address")
 	cmd.Flags().String(flagLogLevel, defaultLogLevel, "The logging level (trace|debug|info|warn|error|fatal|panic)")
 
 	return cmd
