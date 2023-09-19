@@ -40,7 +40,8 @@ type Task struct {
 	ethContractStakeManager        *stake_manager.StakeManager
 	polygonContractStakePortalRate *stake_portal_rate.StakePortalRate
 
-	pushTask *pushTaskInfo
+	monitorEnable bool
+	monitor       *monitorInfo
 
 	taskType uint8
 }
@@ -80,8 +81,9 @@ func NewTask(cfg *config.Config, keyPair *secp256k1.Keypair, taskType uint8) (*T
 	if taskType == utils.TaskTypeSyncRate {
 		s.polygonRpcEndpoint = cfg.PolygonRpcEndpoint
 		s.polygonStakePortalRateAddress = common.HexToAddress(cfg.PolygonStakePortalRateAddress)
-	} else if cfg.PushGateway != "" {
-		s.pushTask = s.initPusher(cfg.PushGateway, "rmatic-relay", cfg.Account)
+	} else if cfg.MonitorEnable {
+		s.monitorEnable = cfg.MonitorEnable
+		s.monitor = s.initPusher("rmatic-relay", cfg.Account)
 	}
 
 	return s, nil
@@ -125,7 +127,7 @@ func (task *Task) Start() error {
 	switch task.taskType {
 	case utils.TaskTypeNewEra:
 		utils.SafeGoWithRestart(task.newEraHandler)
-		if task.pushTask.pushGateway != "" {
+		if task.monitorEnable {
 			utils.SafeGoWithRestart(task.pushHeartbeatHandler)
 		}
 	case utils.TaskTypeSyncRate:
@@ -184,7 +186,9 @@ func (task *Task) newEraHandler() {
 			err := task.handleNewEra()
 			if err != nil {
 				logrus.Warnf("newEraHandler failed, err: %s", err.Error())
-				go task.pushErr(err)
+				if task.monitorEnable {
+					go task.pushErr(err)
+				}
 				continue
 			}
 			logrus.Debug("newEraHandler end -----------")

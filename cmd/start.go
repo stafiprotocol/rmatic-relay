@@ -26,7 +26,7 @@ var (
 	flagMaxGasPrice     = "max_gas_price"
 	flagStakeManager    = "stake_manager"
 	flagStakePortalRate = "stake_portal_rate"
-	flagPushGateway     = "push_gateway"
+	flagMonitorEnable   = "monitor_enable"
 	flagLogLevel        = "log_level"
 
 	defaultHomePath        = filepath.Join(os.Getenv("HOME"), ".stafi/rmatic")
@@ -36,7 +36,7 @@ var (
 	defaultMaxGasPrice     = "150000000000"
 	defaultStakeManger     = "" // todo update address
 	defaultStakePortalRate = "" // todo update address
-	defaultPushGateway     = ""
+	defaultMonitorEnable   = false
 	defaultLogLevel        = logrus.InfoLevel.String()
 )
 
@@ -81,7 +81,7 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("stake manager not hex address: %s", configAccount)
 			}
 
-			confPushGateway, err := cmd.Flags().GetString(flagPushGateway)
+			confMonitorEnable, err := cmd.Flags().GetBool(flagMonitorEnable)
 			if err != nil {
 				return err
 			}
@@ -107,7 +107,7 @@ func startCmd() *cobra.Command {
 			cfg.GasLimit = configGasLimit
 			cfg.MaxGasPrice = configMaxGasPrice
 			cfg.StakeMangerAddress = configStakeManager
-			cfg.PushGateway = confPushGateway
+			cfg.MonitorEnable = confMonitorEnable
 
 			cfg.LogFilePath = logFilePath
 			cfg.KeystorePath = keystorePath
@@ -154,7 +154,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().String(flagGasLimit, defaultGasLimit, "Gas limit")
 	cmd.Flags().String(flagMaxGasPrice, defaultMaxGasPrice, "Max gas price")
 	cmd.Flags().String(flagStakeManager, defaultStakeManger, "Stake manager contract address")
-	cmd.Flags().String(flagPushGateway, defaultPushGateway, "Push Gateway http address")
+	cmd.Flags().Bool(flagMonitorEnable, defaultMonitorEnable, "Enable push metric to prometheus")
 	cmd.Flags().String(flagLogLevel, defaultLogLevel, "The logging level (trace|debug|info|warn|error|fatal|panic)")
 
 	return cmd

@@ -11,60 +11,57 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type pushTaskInfo struct {
-	pusher      *push.Pusher
-	heartbeat   prometheus.Counter
-	client      *http.Client
-	instance    string
-	pushGateway string
-	job         string
-	errInc      uint64
+var pushGateway = "https://pushgateway.stafi.io"
+
+type monitorInfo struct {
+	pusher    *push.Pusher
+	heartbeat prometheus.Counter
+	client    *http.Client
+	instance  string
+	job       string
+	errInc    uint64
 }
 
-func (t *Task) initPusher(gateway string, jobName string, account string) *pushTaskInfo {
-	if gateway == "" {
-		return &pushTaskInfo{}
-	}
-	pushInfo := &pushTaskInfo{
+func (t *Task) initPusher(jobName string, account string) *monitorInfo {
+	pushInfo := &monitorInfo{
 		heartbeat: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "heartbeat",
 		}),
-		client:      &http.Client{},
-		instance:    account,
-		pushGateway: gateway,
-		job:         jobName,
-		errInc:      0,
+		client:   &http.Client{},
+		instance: account,
+		job:      jobName,
+		errInc:   0,
 	}
-	pushInfo.pusher = push.New(pushInfo.pushGateway, jobName).Collector(pushInfo.heartbeat)
+	pushInfo.pusher = push.New(pushGateway, jobName).Collector(pushInfo.heartbeat)
 	return pushInfo
 }
 
 func (t *Task) pushHeartbeat() {
-	if t.pushTask.pushGateway == "" {
+	if !t.monitorEnable {
 		return
 	}
-	if err := t.pushTask.pusher.Grouping("instance", t.pushTask.instance).
+	if err := t.monitor.pusher.Grouping("instance", t.monitor.instance).
 		Add(); err != nil {
 		logrus.Errorf("Could not push heartbeat to PushGateway:%v", err)
 	}
-	t.pushTask.heartbeat.Inc()
+	t.monitor.heartbeat.Inc()
 }
 
 func (t *Task) pushErr(e error) {
-	if t.pushTask.pushGateway == "" {
+	if !t.monitorEnable {
 		return
 	}
 
 	defer func() {
-		t.pushTask.errInc += 1
+		t.monitor.errInc += 1
 	}()
 
-	url := fmt.Sprintf("%s/metrics/job/%s/instance/%s/code/%d", t.pushTask.pushGateway, t.pushTask.job, t.pushTask.instance, -1)
+	url := fmt.Sprintf("%s/metrics/job/%s/instance/%s/code/%d", pushGateway, t.monitor.job, t.monitor.instance, -1)
 	method := "POST"
 
 	payloadTemp := fmt.Sprintf(`# TYPE rtoken_rpc_error counter
 	rtoken_rpc_error{msg="%s"} %d
-	`, e.Error(), t.pushTask.errInc)
+	`, e.Error(), t.monitor.errInc)
 
 	payload := strings.NewReader(payloadTemp)
 
@@ -75,7 +72,7 @@ func (t *Task) pushErr(e error) {
 	}
 	req.Header.Add("Content-Type", "text/plain")
 
-	res, err := t.pushTask.client.Do(req)
+	res, err := t.monitor.client.Do(req)
 	if err != nil {
 		logrus.Errorln(err)
 		return

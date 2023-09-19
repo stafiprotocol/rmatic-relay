@@ -20,7 +20,7 @@ type Config struct {
 	StakeMangerAddress            string
 	PolygonStakePortalRateAddress string
 
-	PushGateway string
+	MonitorEnable bool
 
 	// read from config
 	LogFilePath  string
