@@ -6,17 +6,18 @@ import (
 	"math/big"
 	"time"
 
+	stake_manager "rmatic-relay/bindings/StakeManager"
+	stake_portal_rate "rmatic-relay/bindings/StakePortalRate"
+	"rmatic-relay/pkg/config"
+	"rmatic-relay/pkg/utils"
+	"rmatic-relay/shared"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 	"github.com/stafiprotocol/chainbridge/utils/crypto/secp256k1"
-	"rmatic-relay/bindings/StakeManager"
-	"rmatic-relay/bindings/StakePortalRate"
-	"rmatic-relay/pkg/config"
-	"rmatic-relay/pkg/utils"
-	"rmatic-relay/shared"
 )
 
 type Task struct {
@@ -38,6 +39,8 @@ type Task struct {
 	polygonClient                  *shared.Client
 	ethContractStakeManager        *stake_manager.StakeManager
 	polygonContractStakePortalRate *stake_portal_rate.StakePortalRate
+
+	pushTask *pushTaskInfo
 
 	taskType uint8
 }
@@ -77,6 +80,8 @@ func NewTask(cfg *config.Config, keyPair *secp256k1.Keypair, taskType uint8) (*T
 	if taskType == utils.TaskTypeSyncRate {
 		s.polygonRpcEndpoint = cfg.PolygonRpcEndpoint
 		s.polygonStakePortalRateAddress = common.HexToAddress(cfg.PolygonStakePortalRateAddress)
+	} else if cfg.PushGateway != "" {
+		s.pushTask = s.initPusher(cfg.PushGateway, "rmatic-relay", cfg.Account)
 	}
 
 	return s, nil
@@ -120,6 +125,9 @@ func (task *Task) Start() error {
 	switch task.taskType {
 	case utils.TaskTypeNewEra:
 		utils.SafeGoWithRestart(task.newEraHandler)
+		if task.pushTask.pushGateway != "" {
+			utils.SafeGoWithRestart(task.pushHeartbeatHandler)
+		}
 	case utils.TaskTypeSyncRate:
 		polygonClient, err := shared.NewClient(task.polygonRpcEndpoint, task.keyPair, task.gasLimit, task.maxGasPrice)
 		if err != nil {
@@ -144,13 +152,29 @@ func (task *Task) Stop() {
 	close(task.stop)
 }
 
+func (task *Task) pushHeartbeatHandler() {
+	logrus.Info("start new era Handler")
+	ticker := time.NewTicker(time.Duration(task.taskTicker) * 2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-task.stop:
+			logrus.Info("push heartbeat has stopped")
+			return
+		case <-ticker.C:
+			task.pushHeartbeat()
+			logrus.Info("push heartbeat sent")
+		}
+	}
+}
+
 func (task *Task) newEraHandler() {
 	logrus.Info("start new era Handler")
 	ticker := time.NewTicker(time.Duration(task.taskTicker) * time.Second)
 	defer ticker.Stop()
 
 	for {
-
 		select {
 		case <-task.stop:
 			logrus.Info("task has stopped")
@@ -160,19 +184,20 @@ func (task *Task) newEraHandler() {
 			err := task.handleNewEra()
 			if err != nil {
 				logrus.Warnf("newEraHandler failed, err: %s", err.Error())
+				go task.pushErr(err)
 				continue
 			}
 			logrus.Debug("newEraHandler end -----------")
 		}
 	}
 }
+
 func (task *Task) syncRateHandler() {
 	logrus.Info("start sync rate Handler")
 	ticker := time.NewTicker(time.Duration(task.taskTicker) * time.Second)
 	defer ticker.Stop()
 
 	for {
-
 		select {
 		case <-task.stop:
 			logrus.Info("task has stopped")
@@ -239,7 +264,7 @@ func (task *Task) waitTxOnChain(txHash common.Hash, client *shared.Client) (err 
 					break
 				}
 
-				if receipt.Status == 1 { //success
+				if receipt.Status == 1 { // success
 					txSuccess = true
 				}
 				break

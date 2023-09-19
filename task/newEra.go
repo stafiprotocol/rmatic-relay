@@ -73,7 +73,7 @@ func (t *Task) checkAndCallNewEra(currentEra, latestEra *big.Int, latestCallOpts
 		return errors.Wrap(err, "waitTxOnChain failed")
 	}
 
-	//wait until newEra executed
+	// wait until newEra executed
 	retry := 0
 	for {
 		// wait 2h

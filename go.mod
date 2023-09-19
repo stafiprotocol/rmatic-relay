@@ -7,6 +7,7 @@ require (
 	github.com/ethereum/go-ethereum v1.10.20
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.12.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.7.0
@@ -17,8 +18,10 @@ require (
 require (
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/btcsuite/btcutil v1.0.2 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
@@ -32,6 +35,7 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
@@ -40,8 +44,12 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/lestrrat-go/strftime v1.0.6 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20220103164710-9a04d6ca976b // indirect
 	github.com/pierrec/xxHash v0.1.5 // indirect
+	github.com/prometheus/client_model v0.2.0 // indirect
+	github.com/prometheus/common v0.34.0 // indirect
+	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rjeczalik/notify v0.9.1 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

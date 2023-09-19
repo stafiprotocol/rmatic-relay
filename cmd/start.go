@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
 	"rmatic-relay/pkg/config"
 	"rmatic-relay/pkg/log"
 	"rmatic-relay/pkg/utils"
@@ -25,6 +26,7 @@ var (
 	flagMaxGasPrice     = "max_gas_price"
 	flagStakeManager    = "stake_manager"
 	flagStakePortalRate = "stake_portal_rate"
+	flagPushGateway     = "push_gateway"
 	flagLogLevel        = "log_level"
 
 	defaultHomePath        = filepath.Join(os.Getenv("HOME"), ".stafi/rmatic")
@@ -32,8 +34,9 @@ var (
 	defaultPolygonEndpoint = ""
 	defaultGasLimit        = "2000000"
 	defaultMaxGasPrice     = "150000000000"
-	defaultStakeManger     = "" //todo update address
-	defaultStakePortalRate = "" //todo update address
+	defaultStakeManger     = "" // todo update address
+	defaultStakePortalRate = "" // todo update address
+	defaultPushGateway     = ""
 	defaultLogLevel        = logrus.InfoLevel.String()
 )
 
@@ -78,6 +81,11 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("stake manager not hex address: %s", configAccount)
 			}
 
+			confPushGateway, err := cmd.Flags().GetString(flagPushGateway)
+			if err != nil {
+				return err
+			}
+
 			// check log level
 			logLevelStr, err := cmd.Flags().GetString(flagLogLevel)
 			if err != nil {
@@ -99,6 +107,7 @@ func startCmd() *cobra.Command {
 			cfg.GasLimit = configGasLimit
 			cfg.MaxGasPrice = configMaxGasPrice
 			cfg.StakeMangerAddress = configStakeManager
+			cfg.PushGateway = confPushGateway
 
 			cfg.LogFilePath = logFilePath
 			cfg.KeystorePath = keystorePath
@@ -136,7 +145,6 @@ func startCmd() *cobra.Command {
 
 			<-ctx.Done()
 			return nil
-
 		},
 	}
 
@@ -146,6 +154,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().String(flagGasLimit, defaultGasLimit, "Gas limit")
 	cmd.Flags().String(flagMaxGasPrice, defaultMaxGasPrice, "Max gas price")
 	cmd.Flags().String(flagStakeManager, defaultStakeManger, "Stake manager contract address")
+	cmd.Flags().String(flagPushGateway, defaultPushGateway, "Push Gateway http address")
 	cmd.Flags().String(flagLogLevel, defaultLogLevel, "The logging level (trace|debug|info|warn|error|fatal|panic)")
 
 	return cmd

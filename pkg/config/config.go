@@ -20,13 +20,15 @@ type Config struct {
 	StakeMangerAddress            string
 	PolygonStakePortalRateAddress string
 
-	//read from config
+	PushGateway string
+
+	// read from config
 	LogFilePath  string
 	KeystorePath string
 }
 
 func Load(configFilePath string) (*Config, error) {
-	var cfg = Config{}
+	cfg := Config{}
 	if err := loadSysConfig(configFilePath, &cfg); err != nil {
 		return nil, err
 	}

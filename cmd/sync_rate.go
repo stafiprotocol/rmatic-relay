@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"path/filepath"
+
 	"rmatic-relay/pkg/config"
 	"rmatic-relay/pkg/log"
 	"rmatic-relay/pkg/utils"
@@ -67,6 +68,7 @@ func syncRateCmd() *cobra.Command {
 			if !common.IsHexAddress(configStakePortalRate) {
 				return fmt.Errorf("configStakePortalRate not hex address: %s", configAccount)
 			}
+
 			// check log level
 			logLevelStr, err := cmd.Flags().GetString(flagLogLevel)
 			if err != nil {
@@ -127,7 +129,6 @@ func syncRateCmd() *cobra.Command {
 
 			<-ctx.Done()
 			return nil
-
 		},
 	}
 
