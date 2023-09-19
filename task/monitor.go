@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var pushGateway = "https://pushgateway.stafi.io"
+const pushGateway = "https://pushgateway.stafi.io"
 
 type monitorInfo struct {
 	pusher    *push.Pusher
