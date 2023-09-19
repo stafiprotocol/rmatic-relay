@@ -1,7 +1,6 @@
 package task
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,15 +19,6 @@ type pushTaskInfo struct {
 	pushGateway string
 	job         string
 	errInc      uint64
-}
-
-type errWithCode struct {
-	Code int
-	E    error
-}
-
-func (e errWithCode) Error() string {
-	return e.E.Error()
 }
 
 func (t *Task) initPusher(gateway string, jobName string, account string) *pushTaskInfo {
@@ -69,13 +59,7 @@ func (t *Task) pushErr(e error) {
 		t.pushTask.errInc += 1
 	}()
 
-	code := -1
-	var ec errWithCode
-	if errors.As(e, &ec) {
-		code = ec.Code
-	}
-
-	url := fmt.Sprintf("%s/metrics/job/%s/instance/%s/code/%d", t.pushTask.pushGateway, t.pushTask.job, t.pushTask.instance, code)
+	url := fmt.Sprintf("%s/metrics/job/%s/instance/%s/code/%d", t.pushTask.pushGateway, t.pushTask.job, t.pushTask.instance, -1)
 	method := "POST"
 
 	payloadTemp := fmt.Sprintf(`# TYPE rtoken_rpc_error counter
