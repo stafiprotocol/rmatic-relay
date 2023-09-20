@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -59,9 +60,11 @@ func (t *Task) pushErr(e error) {
 	url := fmt.Sprintf("%s/metrics/job/%s/instance/%s/code/%d", pushGateway, t.monitor.job, t.monitor.instance, -1)
 	method := "POST"
 
+	errMsg := processIP(e.Error())
+
 	payloadTemp := fmt.Sprintf(`# TYPE rtoken_rpc_error counter
 	rtoken_rpc_error{msg="%s"} %d
-	`, e.Error(), t.monitor.errInc)
+	`, errMsg, t.monitor.errInc)
 
 	payload := strings.NewReader(payloadTemp)
 
@@ -84,4 +87,24 @@ func (t *Task) pushErr(e error) {
 		logrus.Errorln(err)
 		return
 	}
+}
+
+func processIP(str string) string {
+	re := regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
+	ips := re.FindAllString(str, -1)
+
+	for _, ip := range ips {
+		hiddenIP := hideIP(ip)
+		str = strings.ReplaceAll(str, ip, hiddenIP)
+	}
+
+	return str
+}
+
+func hideIP(ip string) string {
+	parts := strings.Split(ip, ".")
+	if len(parts) == 4 {
+		return fmt.Sprintf("%s.x.x.%s", parts[0], parts[3])
+	}
+	return ip
 }
