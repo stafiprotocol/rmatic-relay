@@ -96,7 +96,7 @@ func (task *Task) Start() error {
 	switch chainId.Uint64() {
 	case 1:
 		task.isDev = false
-	case 5:
+	case 5,11155111:
 		task.isDev = true
 	default:
 		return fmt.Errorf("unsupport chainId: %d", chainId.Int64())
